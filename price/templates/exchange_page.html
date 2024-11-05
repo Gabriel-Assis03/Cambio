@@ -5,9 +5,28 @@
 {% endblock %}
 
 {% block content %}
-    <select name="coins" id="coins">
-        {% for key in keys %}
-            <option value="{{ key }}">{{ key }}</option>
-        {% endfor %}
-    </select>
+<form action="{% url 'exchange-page' %}" method="post">
+    {% csrf_token %}
+    <div>
+        <p>Valor: </p>
+        <input type="number" name="quant-value" id="quant-value">
+    </div>
+    <div>
+        <p>Moeda atual: </p>
+        <select name="coin-now" id="coin-now">
+            {% for key in keys %}
+                <option value="{{ key }}">{{ key }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div>
+        <p>Moeda futura: </p>
+        <select name="coin-new" id="coin-new">
+            {% for key in keys %}
+                <option value="{{ key }}">{{ key }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit">Cotação</button>
+</form>
 {% endblock %}

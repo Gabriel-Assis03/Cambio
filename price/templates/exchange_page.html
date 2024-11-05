@@ -5,6 +5,9 @@
 {% endblock %}
 
 {% block content %}
-    <p>asdasdasdasdasdaooooooooooooo</p>
-    <p>{{ price }}</p>
+    <select name="coins" id="coins">
+        {% for key in keys %}
+            <option value="{{ key }}">{{ key }}</option>
+        {% endfor %}
+    </select>
 {% endblock %}

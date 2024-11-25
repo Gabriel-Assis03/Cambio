@@ -1,0 +1,95 @@
+/* Estilos gerais */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f9f9f9;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Formulário */
+form {
+    background-color: #ffffff;
+    padding: 20px 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+/* Títulos */
+form p {
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+/* Inputs */
+input[type="number"],
+select {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* Botões de rádio */
+input[type="radio"] {
+    margin-right: 10px;
+}
+
+/* Botões */
+button {
+    width: 100%;
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+/* Labels */
+label {
+    display: inline-block;
+    margin-bottom: 10px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+/* Estilizando o Select */
+select {
+    background-color: #f4f4f4;
+    color: #333;
+    border: 1px solid #ccc;
+}
+
+select:focus {
+    outline: none;
+    border-color: #4CAF50;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+}
+
+/* Alinhamento */
+div {
+    margin-bottom: 20px;
+}
+
+/* Resultado */
+p.final-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    text-align: center;
+    margin-top: 20px;
+}

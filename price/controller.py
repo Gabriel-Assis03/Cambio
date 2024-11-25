@@ -21,7 +21,6 @@ def caculate_value(value, coinNow, coinNew):
         if value is '':
             return 'coloque um valor valido'
         response = requests.get(f'https://economia.awesomeapi.com.br/last/{coinNow}-{coinNew}')
-        # response = requests.get(f'https://economia.awesomeapi.com.br/last/USD-BRL')
         response.raise_for_status()
         data = response.json()
         q = list(data.values())

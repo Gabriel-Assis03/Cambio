@@ -5,10 +5,16 @@ from .controller import coins_options, caculate_value
 def exchange_page(request):
     data = coins_options()
     if request.method == "POST":
+        coinNow = request.POST['coin-now']
+        coinNew = request.POST['coin-new']
+        if coinNow == 'OTHER':
+            coinNow = request.POST['other-now']
+        if coinNew == 'OTHER':
+            coinNew = request.POST['other-new']
         finalValue = caculate_value(
             request.POST['quant-value'],
-            request.POST['coin-now'],
-            request.POST['coin-new']
+            coinNow,
+            coinNew
             )
     context = {
             'keys': data['keys'],

@@ -18,7 +18,7 @@ def coins_options():
 
 def caculate_value(value, coinNow, coinNew):
     try:
-        if value is '':
+        if value == '':
             return 'coloque um valor valido'
         response = requests.get(f'https://economia.awesomeapi.com.br/last/{coinNow}-{coinNew}')
         response.raise_for_status()
@@ -29,6 +29,11 @@ def caculate_value(value, coinNow, coinNew):
         return ret
     
     except requests.exceptions.HTTPError as http_err:
+        if response.status_code == 404:
+            return f'''
+            A conversão de {coinNow} para {coinNew} não foi encontrada.
+            Selecione outra opção para converter.
+            '''
         return JsonResponse({"error": str(http_err)}, status=response.status_code)
     except Exception as err:
         return JsonResponse({"error": str(err)}, status=500)

@@ -21,3 +21,7 @@ def exchange_page(request):
             'finalValue': finalValue
         }
     return render(request, 'exchange_page.html', context)
+
+def home_page(request):
+    return render(request, 'home_page.html')
+

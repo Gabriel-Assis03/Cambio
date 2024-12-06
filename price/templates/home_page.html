@@ -19,18 +19,20 @@ Home
     <p>Cotação atual</p>
     <div>
         <img src="{% static 'img/dollar-symbol.png' %}" alt="dolar simbolo">
-        <h3>{{dolar}}</h3>
+        <h3>R$ {{dolar}}</h3>
     </div>
     <div>
         <img src="{% static 'img/euro-symbol.png' %}" alt="euro simbolo">
-        <h3>{{euro}}</h3>
+        <h3>R$ {{euro}}</h3>
     </div>
     <div>
         <img src="{% static 'img/bitcoin-symbol.png' %}" alt="bitcoin simbolo">
-        <h3>{{bitcoin}}</h3>
+        <h3>R$ {{bitcoin}}</h3>
     </div>
 </div>
-<div>
+<div id="divbtn">
+    <a href="{% url 'exchange-page' %}" class="btn">Conversão</a>
+    <a href="{% url 'exchange-page' %}" class="btn">Conversão</a>
     <a href="{% url 'exchange-page' %}" class="btn">Conversão</a>
 </div>
 {% endblock %}

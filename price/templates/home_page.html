@@ -1,9 +1,36 @@
 {% extends 'base.html' %}
+{% load static %}
+
 
 {% block title %}
 Home
 {% endblock %}
 
+{% block css %}
+<link rel="stylesheet" href="{% static 'css/home_style.css' %}">
+{% endblock %}
+
+{% block head %}
+<h1>Cambio</h1>
+{% endblock %}
+
 {% block content %}
-<h1>asdasdjagsdfasgdfhgasdfhagsd</h1>
+<div id="fastValues">
+    <p>Cotação atual</p>
+    <div>
+        <img src="{% static 'img/dollar-symbol.png' %}" alt="dolar simbolo">
+        <h3>{{dolar}}</h3>
+    </div>
+    <div>
+        <img src="{% static 'img/euro-symbol.png' %}" alt="euro simbolo">
+        <h3>{{euro}}</h3>
+    </div>
+    <div>
+        <img src="{% static 'img/bitcoin-symbol.png' %}" alt="bitcoin simbolo">
+        <h3>{{bitcoin}}</h3>
+    </div>
+</div>
+<div>
+    <a href="{% url 'exchange-page' %}" class="btn">Conversão</a>
+</div>
 {% endblock %}

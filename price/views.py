@@ -4,6 +4,7 @@ from .controller import coins_options, caculate_value
 
 def exchange_page(request):
     data = coins_options()
+    finalValue = ''
     if request.method == "POST":
         coinNow = request.POST['coin-now']
         coinNew = request.POST['coin-new']
@@ -23,5 +24,9 @@ def exchange_page(request):
     return render(request, 'exchange_page.html', context)
 
 def home_page(request):
-    return render(request, 'home_page.html')
-
+    context={
+        'dolar': caculate_value(1,'USD','BRL'),
+        'euro': caculate_value(1,'EUR','BRL'),
+        'bitcoin': caculate_value(1,'BTC','BRL')
+    }
+    return render(request, 'home_page.html', context)

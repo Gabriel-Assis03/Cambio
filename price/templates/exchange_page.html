@@ -8,6 +8,9 @@ Página Converção
 <link rel="stylesheet" href="{% static 'css/exchange_style.css' %}">
 {% endblock %}
 
+{% block header %}
+{% endblock %}
+
 {% block content %}
 <form action="{% url 'exchange-page' %}" method="post">
     {% csrf_token %}

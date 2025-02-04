@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from .controller import coins_options, caculate_value
+from .controller import coins_options, caculate_value, value_fluctuation
 
 
 def exchange_page(request):
@@ -27,6 +27,9 @@ def home_page(request):
     context={
         'dolar': caculate_value(1,'USD','BRL'),
         'euro': caculate_value(1,'EUR','BRL'),
-        'bitcoin': caculate_value(1,'BTC','BRL')
+        'bitcoin': caculate_value(1,'BTC','BRL'),
+        'dolar_fluctuation': value_fluctuation('USD','BRL'),
+        'euro_fluctuation': value_fluctuation('EUR','BRL'),
+        'bitcoin_fluctuation': value_fluctuation('BTC','BRL')
     }
     return render(request, 'home_page.html', context)

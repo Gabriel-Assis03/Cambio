@@ -37,3 +37,20 @@ def caculate_value(value, coinNow, coinNew):
         return JsonResponse({"error": str(http_err)}, status=response.status_code)
     except Exception as err:
         return JsonResponse({"error": str(err)}, status=500)
+    
+
+def value_fluctuation(coinNow, coinNew):
+    try: 
+        response = requests.get(f'https://economia.awesomeapi.com.br/json/daily/{coinNow}-{coinNew}/2')
+        response.raise_for_status()
+        data = response.json()
+        print(float(data[0]['bid']))
+        if float(data[0]['bid']) >= float(data[1]['bid']):
+            return True
+        else:
+            return False
+    
+    except requests.exceptions.HTTPError as http_err:
+        return JsonResponse({"error": str(http_err)}, status=response.status_code)
+    except Exception as err:
+        return JsonResponse({"error": str(err)}, status=500)

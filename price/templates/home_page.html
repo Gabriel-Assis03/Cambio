@@ -19,14 +19,29 @@ Home
     <div>
         <img src="{% static 'img/dollar-symbol.png' %}" alt="dolar simbolo">
         <h3>R$ {{dolar}}</h3>
+        {% if dolar_fluctuation %}
+        <img src="{% static 'img/up-arrow.png' %}" alt="up arrow">
+        {% else %}
+        <img src="{% static 'img/down-arrow.png' %}" alt="down arrow">
+        {% endif %}
     </div>
     <div>
         <img src="{% static 'img/euro-symbol.png' %}" alt="euro simbolo">
         <h3>R$ {{euro}}</h3>
+        {% if euro_fluctuation %}
+        <img src="{% static 'img/up-arrow.png' %}" alt="up arrow">
+        {% else %}
+        <img src="{% static 'img/down-arrow.png' %}" alt="down arrow">
+        {% endif %}
     </div>
     <div>
         <img src="{% static 'img/bitcoin-symbol.png' %}" alt="bitcoin simbolo">
         <h3>R$ {{bitcoin}}</h3>
+        {% if bitcoin_fluctuation %}
+        <img src="{% static 'img/up-arrow.png' %}" alt="up arrow">
+        {% else %}
+        <img src="{% static 'img/down-arrow.png' %}" alt="down arrow">
+        {% endif %}
     </div>
 </div>
 <div id="divbtn">

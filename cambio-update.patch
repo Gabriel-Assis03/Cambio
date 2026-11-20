@@ -1,0 +1,1029 @@
+From f53801920be54abc3a500fadfc9677881c3b212a Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 20 Nov 2026 01:08:02 +0000
+Subject: [PATCH] Faz o app rodar de novo e renova o CSS
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- settings: adiciona ENGINE (SQLite por padrão, MySQL se MYSQL* definido)
+- controller/views: erros tratados sem quebrar a página, timeouts
+- templates: base.html válido, viewport, script selectOtherCoin
+- CSS: base.css compartilhado, layout responsivo, chips de moeda
+- adiciona requirements.txt e .gitignore
+---
+ .gitignore                          |   5 +
+ cambio/settings.py                  |  36 ++++---
+ price/controller.py                 |  77 ++++++-------
+ price/static/css/base.css           | 108 +++++++++++++++++++
+ price/static/css/exchange_style.css | 161 +++++++++++++---------------
+ price/static/css/home_style.css     | 131 ++++++++++------------
+ price/templates/base.html           |  24 ++---
+ price/templates/exchange_page.html  | 123 +++++++++++----------
+ price/templates/home_page.html      |  70 +++++-------
+ price/views.py                      |  56 +++++-----
+ requirements.txt                    |   4 +
+ 11 files changed, 439 insertions(+), 356 deletions(-)
+ create mode 100644 .gitignore
+ create mode 100644 price/static/css/base.css
+ create mode 100644 requirements.txt
+
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..14b46f4
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,5 @@
++.venv/
++__pycache__/
++*.pyc
++db.sqlite3
++.env
+diff --git a/cambio/settings.py b/cambio/settings.py
+index 290f92e..2f5d330 100644
+--- a/cambio/settings.py
++++ b/cambio/settings.py
+@@ -75,21 +75,25 @@ WSGI_APPLICATION = 'cambio.wsgi.application'
+ # Database
+ # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+ 
+-DATABASES = {
+-    'default': {
+-        # 'ENGINE': 'django.db.backends.mysql',
+-        # 'NAME': 'cambio_database',
+-        # 'USER': 'root',
+-        # 'PASSWORD': 'password',
+-        # 'HOST': '127.0.0.1',
+-        # 'PORT': '3306',
+-        'NAME': os.environ.get('MYSQLDATABASE'),
+-        'USER': os.environ.get('MYSQLUSER'),
+-        'PASSWORD': os.environ.get('MYSQLPASSWORD'),
+-        'HOST': os.environ.get('MYSQLHOST'),
+-        'PORT': os.environ.get('MYSQLPORT'),
++if os.environ.get('MYSQLHOST'):
++    DATABASES = {
++        'default': {
++            'ENGINE': 'django.db.backends.mysql',
++            'NAME': os.environ.get('MYSQLDATABASE'),
++            'USER': os.environ.get('MYSQLUSER'),
++            'PASSWORD': os.environ.get('MYSQLPASSWORD'),
++            'HOST': os.environ.get('MYSQLHOST'),
++            'PORT': os.environ.get('MYSQLPORT', '3306'),
++        }
++    }
++else:
++    # Sem variaveis MYSQL* definidas, usa SQLite (o app nao usa models ainda)
++    DATABASES = {
++        'default': {
++            'ENGINE': 'django.db.backends.sqlite3',
++            'NAME': BASE_DIR / 'db.sqlite3',
++        }
+     }
+-}
+ 
+ 
+ # Password validation
+@@ -114,9 +118,9 @@ AUTH_PASSWORD_VALIDATORS = [
+ # Internationalization
+ # https://docs.djangoproject.com/en/5.1/topics/i18n/
+ 
+-LANGUAGE_CODE = 'en-us'
++LANGUAGE_CODE = 'pt-br'
+ 
+-TIME_ZONE = 'UTC'
++TIME_ZONE = 'America/Sao_Paulo'
+ 
+ USE_I18N = True
+ 
+diff --git a/price/controller.py b/price/controller.py
+index bc03f49..20ca7cc 100644
+--- a/price/controller.py
++++ b/price/controller.py
+@@ -1,56 +1,47 @@
+-from django.http import JsonResponse
+ import requests
+ 
++API = 'https://economia.awesomeapi.com.br'
++TIMEOUT = 8
++
++
+ def coins_options():
+-    try: 
+-        response = requests.get('https://economia.awesomeapi.com.br/json/available/uniq')
++    """Lista de moedas disponiveis. Em caso de erro devolve lista vazia."""
++    try:
++        response = requests.get(f'{API}/json/available/uniq', timeout=TIMEOUT)
+         response.raise_for_status()
+-        data = response.json()
+-        key = list(data.keys())
+-        value = list(data.values())
+-        return {'keys': key, 'values': value}
+-    
+-    except requests.exceptions.HTTPError as http_err:
+-        return JsonResponse({"error": str(http_err)}, status=response.status_code)
+-    except Exception as err:
+-        return JsonResponse({"error": str(err)}, status=500)
+-    
++        return {'keys': sorted(response.json().keys())}
++    except (requests.RequestException, ValueError):
++        return {'keys': []}
++
+ 
+ def caculate_value(value, coinNow, coinNew):
++    """Converte `value` de coinNow para coinNew.
++
++    Devolve (resultado, erro): um dos dois e sempre None.
++    """
+     try:
+-        if value == '':
+-            return 'coloque um valor valido'
+-        response = requests.get(f'https://economia.awesomeapi.com.br/last/{coinNow}-{coinNew}')
+-        response.raise_for_status()
+-        data = response.json()
+-        q = list(data.values())
++        if value in ('', None):
++            return None, 'Coloque um valor válido.'
+         value = float(value)
+-        ret = round(value*float(q[0]['bid']), 2)
+-        return ret
+-    
+-    except requests.exceptions.HTTPError as http_err:
++        response = requests.get(f'{API}/last/{coinNow}-{coinNew}', timeout=TIMEOUT)
+         if response.status_code == 404:
+-            return f'''
+-            A conversão de {coinNow} para {coinNew} não foi encontrada.
+-            Selecione outra opção para converter.
+-            '''
+-        return JsonResponse({"error": str(http_err)}, status=response.status_code)
+-    except Exception as err:
+-        return JsonResponse({"error": str(err)}, status=500)
+-    
++            return None, (f'A conversão de {coinNow} para {coinNew} não foi '
++                          'encontrada. Selecione outra opção.')
++        response.raise_for_status()
++        quote = list(response.json().values())[0]
++        return round(value * float(quote['bid']), 2), None
++    except ValueError:
++        return None, 'Coloque um valor válido.'
++    except (requests.RequestException, KeyError, IndexError):
++        return None, 'Não foi possível consultar a cotação agora. Tente de novo.'
++
+ 
+ def value_fluctuation(coinNow, coinNew):
+-    try: 
+-        response = requests.get(f'https://economia.awesomeapi.com.br/json/daily/{coinNow}-{coinNew}/2')
++    """True se subiu, False se caiu, None se nao foi possivel saber."""
++    try:
++        response = requests.get(f'{API}/json/daily/{coinNow}-{coinNew}/2', timeout=TIMEOUT)
+         response.raise_for_status()
+         data = response.json()
+-        print(float(data[0]['bid']))
+-        if float(data[0]['bid']) >= float(data[1]['bid']):
+-            return True
+-        else:
+-            return False
+-    
+-    except requests.exceptions.HTTPError as http_err:
+-        return JsonResponse({"error": str(http_err)}, status=response.status_code)
+-    except Exception as err:
+-        return JsonResponse({"error": str(err)}, status=500)
++        return float(data[0]['bid']) >= float(data[1]['bid'])
++    except (requests.RequestException, KeyError, IndexError, ValueError):
++        return None
+diff --git a/price/static/css/base.css b/price/static/css/base.css
+new file mode 100644
+index 0000000..df05f32
+--- /dev/null
++++ b/price/static/css/base.css
+@@ -0,0 +1,108 @@
++:root {
++    --brand: #005f73;
++    --brand-dark: #0a4a59;
++    --accent: #0a9396;
++    --bg: #eef3f5;
++    --surface: #ffffff;
++    --text: #1f2a30;
++    --muted: #6b7a83;
++    --border: #d8e1e5;
++    --up: #1b9e5a;
++    --down: #d1344a;
++    --radius: 14px;
++    --shadow: 0 6px 20px rgba(0, 40, 55, 0.08);
++}
++
++* { box-sizing: border-box; }
++
++body {
++    margin: 0;
++    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
++    background: var(--bg);
++    color: var(--text);
++    line-height: 1.5;
++}
++
++.header {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    padding: 14px 24px;
++    background: linear-gradient(135deg, var(--brand), var(--accent));
++    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
++}
++
++.brand {
++    color: #fff;
++    font-size: 1.6rem;
++    font-weight: 700;
++    letter-spacing: 0.5px;
++    text-decoration: none;
++}
++
++.home-link img {
++    display: block;
++    width: 40px;
++    height: 40px;
++    padding: 6px;
++    background: rgba(255, 255, 255, 0.15);
++    border: 2px solid #fff;
++    border-radius: 50%;
++    transition: transform 0.2s, background 0.2s;
++}
++
++.home-link:hover img,
++.home-link:focus-visible img {
++    transform: scale(1.1);
++    background: rgba(255, 255, 255, 0.3);
++}
++
++main {
++    max-width: 960px;
++    margin: 0 auto;
++    padding: 32px 20px 48px;
++}
++
++.card {
++    background: var(--surface);
++    border: 1px solid var(--border);
++    border-radius: var(--radius);
++    box-shadow: var(--shadow);
++    padding: 24px 28px;
++}
++
++.card h2 {
++    margin: 0 0 18px;
++    font-size: 1.2rem;
++}
++
++.btn,
++button {
++    display: inline-block;
++    padding: 12px 28px;
++    background: var(--brand);
++    color: #fff;
++    font: inherit;
++    font-weight: 600;
++    text-decoration: none;
++    text-align: center;
++    border: 0;
++    border-radius: 10px;
++    cursor: pointer;
++    transition: background 0.2s, transform 0.1s;
++}
++
++.btn:hover,
++button:hover {
++    background: var(--brand-dark);
++}
++
++.btn:active,
++button:active {
++    transform: translateY(1px);
++}
++
++:focus-visible {
++    outline: 3px solid rgba(10, 147, 150, 0.45);
++    outline-offset: 2px;
++}
+diff --git a/price/static/css/exchange_style.css b/price/static/css/exchange_style.css
+index c849c63..5693b51 100644
+--- a/price/static/css/exchange_style.css
++++ b/price/static/css/exchange_style.css
+@@ -1,122 +1,109 @@
+-/* body {
+-    font-family: Arial, sans-serif;
+-    background-color: #f9f9f9;
+-    margin: 0;
+-    padding: 0;
++main {
+     display: flex;
+     justify-content: center;
+-    align-items: center;
+-    height: 100vh;
+-} */
+-
+-body {
+-    font-family: Arial, sans-serif;
+-    margin: 0;
+-    padding: 0;
+-    background-color: #f4f4f4;
+-    color: #333;
+ }
+ 
+-.header {
+-    background-color: #005f73;
+-    color: white;
+-    padding: 20px;
+-    display: flex;
+-    align-items: center;
+-    justify-content: space-between;
++form.card {
++    width: 100%;
++    max-width: 460px;
+ }
+ 
+-.header h1 {
+-    margin: 0;
+-    font-size: 24px;
++.field {
++    margin: 0 0 20px;
++    padding: 0;
++    border: 0;
+ }
+ 
+-.header a img {
+-    border: 2px solid white;
+-    border-radius: 50%;
+-    transition: transform 0.3s;
++.field-label {
++    display: block;
++    margin-bottom: 8px;
++    padding: 0;
++    font-weight: 600;
++    font-size: 0.9rem;
++    color: var(--muted);
+ }
+ 
+-.header a img:hover {
+-    transform: scale(1.1);
++input[type="number"],
++select {
++    width: 100%;
++    padding: 10px 12px;
++    font: inherit;
++    color: var(--text);
++    background: #f7fafb;
++    border: 1px solid var(--border);
++    border-radius: 8px;
+ }
+ 
+-main {
+-    padding-top: 150px;
+-    padding-left: 36%;
++input[type="number"]:focus,
++select:focus {
++    outline: none;
++    border-color: var(--accent);
++    box-shadow: 0 0 0 3px rgba(10, 147, 150, 0.2);
+ }
+ 
+-form {
+-    background-color: #ffffff;
+-    padding: 20px 30px;
+-    border-radius: 8px;
+-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+-    width: 100%;
+-    max-width: 400px;
++select {
++    margin-top: 10px;
+ }
+ 
+-form p {
+-    font-weight: bold;
+-    margin-bottom: 10px;
+-    color: #333;
++/* Radios viram "chips" clicaveis */
++.options {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 8px;
+ }
+ 
+-input[type="number"],
+-select {
+-    width: 100%;
+-    padding: 8px;
+-    margin-bottom: 15px;
+-    border: 1px solid #ccc;
+-    border-radius: 4px;
+-    font-size: 14px;
++.options input[type="radio"] {
++    position: absolute;
++    opacity: 0;
++    pointer-events: none;
+ }
+ 
+-input[type="radio"] {
+-    margin-right: 10px;
++.options label {
++    padding: 8px 16px;
++    font-size: 0.9rem;
++    font-weight: 600;
++    cursor: pointer;
++    background: #f7fafb;
++    border: 1px solid var(--border);
++    border-radius: 999px;
++    transition: background 0.15s, color 0.15s, border-color 0.15s;
+ }
+ 
+-button {
+-    width: 100%;
+-    padding: 10px;
+-    background-color: #005f73;
+-    color: white;
+-    border: none;
+-    border-radius: 4px;
+-    font-size: 16px;
+-    cursor: pointer;
++.options label:hover {
++    border-color: var(--accent);
+ }
+ 
+-button:hover {
+-    background-color: #45a049;
++.options input[type="radio"]:checked + label {
++    background: var(--brand);
++    border-color: var(--brand);
++    color: #fff;
+ }
+ 
+-label {
+-    display: inline-block;
+-    margin-bottom: 10px;
+-    cursor: pointer;
+-    font-size: 14px;
++.options input[type="radio"]:focus-visible + label {
++    outline: 3px solid rgba(10, 147, 150, 0.45);
++    outline-offset: 2px;
+ }
+ 
+-select {
+-    background-color: #f4f4f4;
+-    color: #333;
+-    border: 1px solid #ccc;
++.result {
++    margin: 0 0 18px;
++    padding: 14px;
++    text-align: center;
++    border-radius: 10px;
+ }
+ 
+-select:focus {
+-    outline: none;
+-    border-color: #4CAF50;
+-    box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
++.result.final-value {
++    font-size: 1.6rem;
++    font-weight: 700;
++    color: var(--brand);
++    background: #e6f4f4;
+ }
+ 
+-div {
+-    margin-bottom: 20px;
++.result.error {
++    font-size: 0.95rem;
++    color: var(--down);
++    background: #fdecef;
+ }
+ 
+-p.final-value {
+-    font-size: 18px;
+-    font-weight: bold;
+-    color: #333;
+-    text-align: center;
+-    margin-top: 20px;
++form button[type="submit"] {
++    width: 100%;
+ }
+diff --git a/price/static/css/home_style.css b/price/static/css/home_style.css
+index 641dc90..0b1f1bd 100644
+--- a/price/static/css/home_style.css
++++ b/price/static/css/home_style.css
+@@ -1,106 +1,85 @@
+-body {
+-    font-family: Arial, sans-serif;
++main {
++    display: grid;
++    grid-template-columns: minmax(280px, 420px) 1fr;
++    gap: 28px;
++    align-items: start;
++}
++
++.quotes ul {
++    list-style: none;
+     margin: 0;
+     padding: 0;
+-    background-color: #f5f5f5;
+ }
+ 
+-.header {
+-    background-color: #005f73;
+-    color: white;
+-    padding: 20px;
++.quotes li {
+     display: flex;
+     align-items: center;
+-    justify-content: space-between;
+-}
+-
+-.header h1 {
+-    margin: 0;
+-    font-size: 24px;
++    gap: 14px;
++    padding: 14px 0;
++    border-bottom: 1px solid var(--border);
+ }
+ 
+-.header a img {
+-    border: 2px solid white;
+-    border-radius: 50%;
+-    transition: transform 0.3s;
++.quotes li:last-child {
++    border-bottom: 0;
++    padding-bottom: 0;
+ }
+ 
+-.header a img:hover {
+-    transform: scale(1.1);
++.quotes img {
++    width: 44px;
++    height: 44px;
++    object-fit: contain;
+ }
+ 
+-main {
++.quote-info {
+     display: flex;
+-    /* justify-content: space-between; */
+-    align-items: flex-start;
+-    padding: 20px;
+-}
+-
+-#fastValues {
+-    background-color: #fff;
+-    border: 2px solid #ddd;
+-    border-radius: 8px;
+-    padding: 20px;
+-    width: 25%;
+-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+-}
+-
+-#fastValues p {
+-    font-size: 1.2em;
+-    margin-bottom: 10px;
+-    font-weight: bold;
+-    color: #333;
++    flex-direction: column;
++    flex: 1;
+ }
+ 
+-#fastValues div {
+-    display: flex;
+-    align-items: center;
+-    margin-bottom: 15px;
++.quote-name {
++    font-size: 0.85rem;
++    color: var(--muted);
+ }
+ 
+-#fastValues img {
+-    width: 50px;
+-    height: 50px;
+-    margin-right: 10px;
++.quote-value {
++    font-size: 1.5rem;
++    line-height: 1.2;
+ }
+ 
+-#fastValues h3 {
+-    font-size: 1.8em;
+-    color: #555;
++.quote-value.muted {
++    font-size: 1rem;
++    font-weight: 400;
++    color: var(--muted);
+ }
+ 
+-div > .btn {
+-    display: inline-block;
+-    padding: 20px 100px;
+-    background-color: #005f73;
+-    color: white;
+-    text-decoration: none;
+-    border-radius: 4px;
+-    text-align: center;
++.trend {
++    font-size: 1.3rem;
++    font-weight: 700;
+ }
+ 
+-.btn:hover {
+-    background-color: #45a049;
+-}
++.trend.up { color: var(--up); }
++.trend.down { color: var(--down); }
++.trend.flat { color: var(--muted); }
+ 
+-#divbtn {
++.actions {
+     display: flex;
+     flex-direction: column;
+-    justify-content: flex-start;
+-    align-items: flex-end;
+-    width: 35%;
+-    padding: 10px;
+-    padding-top: 100px;
++    align-items: flex-start;
++    gap: 14px;
+ }
+ 
+-#divbtn a {
+-    display: flex;
+-    align-items: center;
+-    margin-bottom: 50px;
++.actions .btn {
++    min-width: 220px;
++    padding: 18px 32px;
++    font-size: 1.1rem;
+ }
+ 
+-header h1 {
+-    font-size: 2em;
+-    margin: 0;
+-    color: #fff;
+-}
+\ No newline at end of file
++@media (max-width: 720px) {
++    main {
++        grid-template-columns: 1fr;
++    }
++
++    .actions .btn {
++        width: 100%;
++    }
++}
+diff --git a/price/templates/base.html b/price/templates/base.html
+index 5a4bc0b..fcb24d6 100644
+--- a/price/templates/base.html
++++ b/price/templates/base.html
+@@ -1,23 +1,23 @@
+ {% load static %}
+-
+ <!DOCTYPE html>
+ <html lang="pt-br">
+ <head>
+     <meta charset="UTF-8">
+-    <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0"> -->
+-    <title>{% block title %} {% endblock %}</title>
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>{% block title %}Cambio{% endblock %}</title>
++    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+     {% block css %}{% endblock %}
+ </head>
+-<header class="header">
+-    <h1>Cambio</h1>
+-    <a href="{% url 'home-page' %}">
+-        <img src="{% static 'img/house-icon.png' %}" style="width: 50px; height: 50px;">
+-    </a>
+-    {% block head %} {% endblock %}
+-</header>
+ <body>
++    <header class="header">
++        <a class="brand" href="{% url 'home-page' %}">Cambio</a>
++        <a class="home-link" href="{% url 'home-page' %}" aria-label="Ir para a página inicial">
++            <img src="{% static 'img/house-icon.png' %}" alt="">
++        </a>
++    </header>
+     <main>
+-        {% block content %} {% endblock %}
++        {% block content %}{% endblock %}
+     </main>
++    {% block scripts %}{% endblock %}
+ </body>
+-</html>
+\ No newline at end of file
++</html>
+diff --git a/price/templates/exchange_page.html b/price/templates/exchange_page.html
+index 46b8c45..19cb11a 100644
+--- a/price/templates/exchange_page.html
++++ b/price/templates/exchange_page.html
+@@ -1,74 +1,83 @@
+ {% extends 'base.html' %}
+ {% load static %}
+ 
+-{% block title %}
+-Página Converção
+-{% endblock %}
++{% block title %}Conversão · Cambio{% endblock %}
++
+ {% block css %}
+ <link rel="stylesheet" href="{% static 'css/exchange_style.css' %}">
+ {% endblock %}
+ 
+-{% block header %}
+-{% endblock %}
+-
+ {% block content %}
+-<form action="{% url 'exchange-page' %}" method="post">
++<form class="card" action="{% url 'exchange-page' %}" method="post">
+     {% csrf_token %}
+-    <div>
+-        <p>Valor: </p>
+-        <input type="number" name="quant-value" id="quant-value"
+-        value="1" min="0">
+-    </div>
+-    <div>
+-        <p>Moeda inicial:</p>
+-        <input type="radio" id="usd" name="coin-now" value="USD" checked>
+-        <label for="usd">USD</label>
+-
+-        <input type="radio" id="eur" name="coin-now" value="EUR">
+-        <label for="eur">EUR</label>
++    <h2>Conversão de moedas</h2>
+ 
+-        <input type="radio" id="brl" name="coin-now" value="BRL">
+-        <label for="brl">BRL</label>
+-
+-        <input type="radio" id="btc" name="coin-now" value="BTC">
+-        <label for="btc">BTC</label>
+-        <br>
+-        <input type="radio" id="other-coin-now" name="coin-now" value="OTHER">
+-        <label for="other-coin-now">
+-            <select id="coin-now-select" onchange="selectOtherCoin('coin-now')" name="other-now">
+-                <option value="" disabled selected>Outras moedas...</option>
+-                {% for key in keys %}
+-                <option value="{{ key }}">{{ key }}</option>
+-                {% endfor %}
+-            </select>
+-        </label>
++    <div class="field">
++        <label class="field-label" for="quant-value">Valor</label>
++        <input type="number" name="quant-value" id="quant-value"
++               value="{{ quantValue }}" min="0" step="any">
+     </div>
+ 
+-    <div>
+-        <p>Moeda final:</p>
+-        <input type="radio" id="usd-new" name="coin-new" value="USD">
+-        <label for="usd-new">USD</label>
++    <fieldset class="field">
++        <legend class="field-label">Moeda inicial</legend>
++        <div class="options">
++            <input type="radio" id="usd" name="coin-now" value="USD" checked>
++            <label for="usd">USD</label>
++            <input type="radio" id="eur" name="coin-now" value="EUR">
++            <label for="eur">EUR</label>
++            <input type="radio" id="brl" name="coin-now" value="BRL">
++            <label for="brl">BRL</label>
++            <input type="radio" id="btc" name="coin-now" value="BTC">
++            <label for="btc">BTC</label>
++            <input type="radio" id="other-coin-now" name="coin-now" value="OTHER">
++            <label for="other-coin-now">Outra</label>
++        </div>
++        <select id="coin-now-select" onchange="selectOtherCoin('coin-now')" name="other-now">
++            <option value="" disabled selected>Outras moedas...</option>
++            {% for key in keys %}
++            <option value="{{ key }}">{{ key }}</option>
++            {% endfor %}
++        </select>
++    </fieldset>
+ 
+-        <input type="radio" id="eur-new" name="coin-new" value="EUR">
+-        <label for="eur-new">EUR</label>
++    <fieldset class="field">
++        <legend class="field-label">Moeda final</legend>
++        <div class="options">
++            <input type="radio" id="usd-new" name="coin-new" value="USD">
++            <label for="usd-new">USD</label>
++            <input type="radio" id="eur-new" name="coin-new" value="EUR">
++            <label for="eur-new">EUR</label>
++            <input type="radio" id="brl-new" name="coin-new" value="BRL" checked>
++            <label for="brl-new">BRL</label>
++            <input type="radio" id="btc-new" name="coin-new" value="BTC">
++            <label for="btc-new">BTC</label>
++            <input type="radio" id="other-coin-new" name="coin-new" value="OTHER">
++            <label for="other-coin-new">Outra</label>
++        </div>
++        <select id="coin-new-select" onchange="selectOtherCoin('coin-new')" name="other-new">
++            <option value="" disabled selected>Outras moedas...</option>
++            {% for key in keys %}
++            <option value="{{ key }}">{{ key }}</option>
++            {% endfor %}
++        </select>
++    </fieldset>
+ 
+-        <input type="radio" id="brl-new" name="coin-new" value="BRL" checked>
+-        <label for="brl-new">BRL</label>
++    {% if error %}
++    <p class="result error" role="alert">{{ error }}</p>
++    {% elif finalValue is not None %}
++    <p class="result final-value">{{ finalValue }}</p>
++    {% endif %}
+ 
+-        <input type="radio" id="btc-new" name="coin-new" value="BTC">
+-        <label for="btc-new">BTC</label>
+-        <br>
+-        <input type="radio" id="other-coin-new" name="coin-new" value="OTHER">
+-        <label for="other-coin-new">
+-            <select id="coin-new-select" onchange="selectOtherCoin('coin-new')" name="other-new">
+-                <option value="" disabled selected>Outras moedas...</option>
+-                {% for key in keys %}
+-                <option value="{{ key }}">{{ key }}</option>
+-                {% endfor %}
+-            </select>
+-        </label>
+-    </div>
+-    <p>{{ finalValue }}</p>
+     <button type="submit">Cotação</button>
+ </form>
+-{% endblock %}
+\ No newline at end of file
++{% endblock %}
++
++{% block scripts %}
++<script>
++    // Ao escolher uma moeda no select, marca o radio "Outra" correspondente
++    function selectOtherCoin(prefix) {
++        var suffix = prefix === 'coin-now' ? 'now' : 'new';
++        document.getElementById('other-coin-' + suffix).checked = true;
++    }
++</script>
++{% endblock %}
+diff --git a/price/templates/home_page.html b/price/templates/home_page.html
+index 95b4f89..837e238 100644
+--- a/price/templates/home_page.html
++++ b/price/templates/home_page.html
+@@ -1,52 +1,40 @@
+ {% extends 'base.html' %}
+ {% load static %}
+ 
+-
+-{% block title %}
+-Home
+-{% endblock %}
++{% block title %}Home · Cambio{% endblock %}
+ 
+ {% block css %}
+ <link rel="stylesheet" href="{% static 'css/home_style.css' %}">
+ {% endblock %}
+ 
+-{% block header %}
+-{% endblock %}
+-
+ {% block content %}
+-<div id="fastValues">
+-    <p>Cotação atual</p>
+-    <div>
+-        <img src="{% static 'img/dollar-symbol.png' %}" alt="dolar simbolo">
+-        <h3>R$ {{dolar}}</h3>
+-        {% if dolar_fluctuation %}
+-        <img src="{% static 'img/up-arrow.png' %}" alt="up arrow">
+-        {% else %}
+-        <img src="{% static 'img/down-arrow.png' %}" alt="down arrow">
+-        {% endif %}
+-    </div>
+-    <div>
+-        <img src="{% static 'img/euro-symbol.png' %}" alt="euro simbolo">
+-        <h3>R$ {{euro}}</h3>
+-        {% if euro_fluctuation %}
+-        <img src="{% static 'img/up-arrow.png' %}" alt="up arrow">
+-        {% else %}
+-        <img src="{% static 'img/down-arrow.png' %}" alt="down arrow">
+-        {% endif %}
+-    </div>
+-    <div>
+-        <img src="{% static 'img/bitcoin-symbol.png' %}" alt="bitcoin simbolo">
+-        <h3>R$ {{bitcoin}}</h3>
+-        {% if bitcoin_fluctuation %}
+-        <img src="{% static 'img/up-arrow.png' %}" alt="up arrow">
+-        {% else %}
+-        <img src="{% static 'img/down-arrow.png' %}" alt="down arrow">
+-        {% endif %}
+-    </div>
+-</div>
+-<div id="divbtn">
++<section class="card quotes" id="fastValues">
++    <h2>Cotação atual</h2>
++    <ul>
++        {% for coin in coins %}
++        <li>
++            <img src="{% static 'img/' %}{{ coin.icon }}" alt="Símbolo de {{ coin.name }}">
++            <div class="quote-info">
++                <span class="quote-name">{{ coin.name }}</span>
++                {% if coin.value is not None %}
++                <strong class="quote-value">R$ {{ coin.value }}</strong>
++                {% else %}
++                <strong class="quote-value muted">indisponível</strong>
++                {% endif %}
++            </div>
++            {% if coin.up is True %}
++            <span class="trend up" title="Valorizou" aria-label="Valorizou">▲</span>
++            {% elif coin.up is False %}
++            <span class="trend down" title="Desvalorizou" aria-label="Desvalorizou">▼</span>
++            {% else %}
++            <span class="trend flat" title="Sem dados">–</span>
++            {% endif %}
++        </li>
++        {% endfor %}
++    </ul>
++</section>
++
++<nav class="actions" id="divbtn">
+     <a href="{% url 'exchange-page' %}" class="btn">Conversão</a>
+-    <a href="{% url 'exchange-page' %}" class="btn">...</a>
+-    <a href="{% url 'exchange-page' %}" class="btn">..</a>
+-</div>
++</nav>
+ {% endblock %}
+diff --git a/price/views.py b/price/views.py
+index a6568f3..04f0ec9 100644
+--- a/price/views.py
++++ b/price/views.py
+@@ -4,32 +4,40 @@ from .controller import coins_options, caculate_value, value_fluctuation
+ 
+ def exchange_page(request):
+     data = coins_options()
+-    finalValue = ''
++    final_value = None
++    error = None
+     if request.method == "POST":
+-        coinNow = request.POST['coin-now']
+-        coinNew = request.POST['coin-new']
+-        if coinNow == 'OTHER':
+-            coinNow = request.POST['other-now']
+-        if coinNew == 'OTHER':
+-            coinNew = request.POST['other-new']
+-        finalValue = caculate_value(
+-            request.POST['quant-value'],
+-            coinNow,
+-            coinNew
+-            )
++        coin_now = request.POST.get('coin-now', 'USD')
++        coin_new = request.POST.get('coin-new', 'BRL')
++        if coin_now == 'OTHER':
++            coin_now = request.POST.get('other-now', '')
++        if coin_new == 'OTHER':
++            coin_new = request.POST.get('other-new', '')
++        if not coin_now or not coin_new:
++            error = 'Selecione a moeda inicial e a final.'
++        else:
++            final_value, error = caculate_value(
++                request.POST.get('quant-value', ''), coin_now, coin_new)
+     context = {
+-            'keys': data['keys'],
+-            'finalValue': finalValue
+-        }
++        'keys': data['keys'],
++        'finalValue': final_value,
++        'error': error,
++        'quantValue': request.POST.get('quant-value', '1'),
++    }
+     return render(request, 'exchange_page.html', context)
+ 
++
+ def home_page(request):
+-    context={
+-        'dolar': caculate_value(1,'USD','BRL'),
+-        'euro': caculate_value(1,'EUR','BRL'),
+-        'bitcoin': caculate_value(1,'BTC','BRL'),
+-        'dolar_fluctuation': value_fluctuation('USD','BRL'),
+-        'euro_fluctuation': value_fluctuation('EUR','BRL'),
+-        'bitcoin_fluctuation': value_fluctuation('BTC','BRL')
+-    }
+-    return render(request, 'home_page.html', context)
++    coins = []
++    for code, name, icon in (('USD', 'Dólar', 'dollar-symbol.png'),
++                             ('EUR', 'Euro', 'euro-symbol.png'),
++                             ('BTC', 'Bitcoin', 'bitcoin-symbol.png')):
++        value, _ = caculate_value(1, code, 'BRL')
++        coins.append({
++            'code': code,
++            'name': name,
++            'icon': icon,
++            'value': value,
++            'up': value_fluctuation(code, 'BRL'),
++        })
++    return render(request, 'home_page.html', {'coins': coins})
+diff --git a/requirements.txt b/requirements.txt
+new file mode 100644
+index 0000000..9558f49
+--- /dev/null
++++ b/requirements.txt
+@@ -0,0 +1,4 @@
++Django>=5.1,<5.2
++requests>=2.32
++# Só necessário se usar MySQL (variáveis MYSQL* definidas):
++# mysqlclient>=2.2
+-- 
+2.43.0
+

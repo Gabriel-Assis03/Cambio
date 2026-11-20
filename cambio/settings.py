@@ -75,21 +75,25 @@ WSGI_APPLICATION = 'cambio.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        # 'ENGINE': 'django.db.backends.mysql',
-        # 'NAME': 'cambio_database',
-        # 'USER': 'root',
-        # 'PASSWORD': 'password',
-        # 'HOST': '127.0.0.1',
-        # 'PORT': '3306',
-        'NAME': os.environ.get('MYSQLDATABASE'),
-        'USER': os.environ.get('MYSQLUSER'),
-        'PASSWORD': os.environ.get('MYSQLPASSWORD'),
-        'HOST': os.environ.get('MYSQLHOST'),
-        'PORT': os.environ.get('MYSQLPORT'),
+if os.environ.get('MYSQLHOST'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.environ.get('MYSQLDATABASE'),
+            'USER': os.environ.get('MYSQLUSER'),
+            'PASSWORD': os.environ.get('MYSQLPASSWORD'),
+            'HOST': os.environ.get('MYSQLHOST'),
+            'PORT': os.environ.get('MYSQLPORT', '3306'),
+        }
     }
-}
+else:
+    # Sem variaveis MYSQL* definidas, usa SQLite (o app nao usa models ainda)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -114,9 +118,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'pt-br'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Sao_Paulo'
 
 USE_I18N = True
 

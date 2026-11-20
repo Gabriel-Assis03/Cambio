@@ -1,74 +1,83 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}
-Página Converção
-{% endblock %}
+{% block title %}Conversão · Cambio{% endblock %}
+
 {% block css %}
 <link rel="stylesheet" href="{% static 'css/exchange_style.css' %}">
 {% endblock %}
 
-{% block header %}
-{% endblock %}
-
 {% block content %}
-<form action="{% url 'exchange-page' %}" method="post">
+<form class="card" action="{% url 'exchange-page' %}" method="post">
     {% csrf_token %}
-    <div>
-        <p>Valor: </p>
+    <h2>Conversão de moedas</h2>
+
+    <div class="field">
+        <label class="field-label" for="quant-value">Valor</label>
         <input type="number" name="quant-value" id="quant-value"
-        value="1" min="0">
-    </div>
-    <div>
-        <p>Moeda inicial:</p>
-        <input type="radio" id="usd" name="coin-now" value="USD" checked>
-        <label for="usd">USD</label>
-
-        <input type="radio" id="eur" name="coin-now" value="EUR">
-        <label for="eur">EUR</label>
-
-        <input type="radio" id="brl" name="coin-now" value="BRL">
-        <label for="brl">BRL</label>
-
-        <input type="radio" id="btc" name="coin-now" value="BTC">
-        <label for="btc">BTC</label>
-        <br>
-        <input type="radio" id="other-coin-now" name="coin-now" value="OTHER">
-        <label for="other-coin-now">
-            <select id="coin-now-select" onchange="selectOtherCoin('coin-now')" name="other-now">
-                <option value="" disabled selected>Outras moedas...</option>
-                {% for key in keys %}
-                <option value="{{ key }}">{{ key }}</option>
-                {% endfor %}
-            </select>
-        </label>
+               value="{{ quantValue }}" min="0" step="any">
     </div>
 
-    <div>
-        <p>Moeda final:</p>
-        <input type="radio" id="usd-new" name="coin-new" value="USD">
-        <label for="usd-new">USD</label>
+    <fieldset class="field">
+        <legend class="field-label">Moeda inicial</legend>
+        <div class="options">
+            <input type="radio" id="usd" name="coin-now" value="USD" checked>
+            <label for="usd">USD</label>
+            <input type="radio" id="eur" name="coin-now" value="EUR">
+            <label for="eur">EUR</label>
+            <input type="radio" id="brl" name="coin-now" value="BRL">
+            <label for="brl">BRL</label>
+            <input type="radio" id="btc" name="coin-now" value="BTC">
+            <label for="btc">BTC</label>
+            <input type="radio" id="other-coin-now" name="coin-now" value="OTHER">
+            <label for="other-coin-now">Outra</label>
+        </div>
+        <select id="coin-now-select" onchange="selectOtherCoin('coin-now')" name="other-now">
+            <option value="" disabled selected>Outras moedas...</option>
+            {% for key in keys %}
+            <option value="{{ key }}">{{ key }}</option>
+            {% endfor %}
+        </select>
+    </fieldset>
 
-        <input type="radio" id="eur-new" name="coin-new" value="EUR">
-        <label for="eur-new">EUR</label>
+    <fieldset class="field">
+        <legend class="field-label">Moeda final</legend>
+        <div class="options">
+            <input type="radio" id="usd-new" name="coin-new" value="USD">
+            <label for="usd-new">USD</label>
+            <input type="radio" id="eur-new" name="coin-new" value="EUR">
+            <label for="eur-new">EUR</label>
+            <input type="radio" id="brl-new" name="coin-new" value="BRL" checked>
+            <label for="brl-new">BRL</label>
+            <input type="radio" id="btc-new" name="coin-new" value="BTC">
+            <label for="btc-new">BTC</label>
+            <input type="radio" id="other-coin-new" name="coin-new" value="OTHER">
+            <label for="other-coin-new">Outra</label>
+        </div>
+        <select id="coin-new-select" onchange="selectOtherCoin('coin-new')" name="other-new">
+            <option value="" disabled selected>Outras moedas...</option>
+            {% for key in keys %}
+            <option value="{{ key }}">{{ key }}</option>
+            {% endfor %}
+        </select>
+    </fieldset>
 
-        <input type="radio" id="brl-new" name="coin-new" value="BRL" checked>
-        <label for="brl-new">BRL</label>
+    {% if error %}
+    <p class="result error" role="alert">{{ error }}</p>
+    {% elif finalValue is not None %}
+    <p class="result final-value">{{ finalValue }}</p>
+    {% endif %}
 
-        <input type="radio" id="btc-new" name="coin-new" value="BTC">
-        <label for="btc-new">BTC</label>
-        <br>
-        <input type="radio" id="other-coin-new" name="coin-new" value="OTHER">
-        <label for="other-coin-new">
-            <select id="coin-new-select" onchange="selectOtherCoin('coin-new')" name="other-new">
-                <option value="" disabled selected>Outras moedas...</option>
-                {% for key in keys %}
-                <option value="{{ key }}">{{ key }}</option>
-                {% endfor %}
-            </select>
-        </label>
-    </div>
-    <p>{{ finalValue }}</p>
     <button type="submit">Cotação</button>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Ao escolher uma moeda no select, marca o radio "Outra" correspondente
+    function selectOtherCoin(prefix) {
+        var suffix = prefix === 'coin-now' ? 'now' : 'new';
+        document.getElementById('other-coin-' + suffix).checked = true;
+    }
+</script>
 {% endblock %}
